@@ -1,4 +1,4 @@
 name,ip,ttl
-google.com,192.168.0.1,0
-gmail.com,10.0.0.1,0
+google,192.168.0.1,0
+gmail,10.0.0.1,0
 teste,1.1.1.1,1563112498.99

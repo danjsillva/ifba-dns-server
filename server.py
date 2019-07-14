@@ -70,14 +70,45 @@ def LoadTable():
         return False
 
 
-def GetIpFromName(domainName):
+def GetIpFromNameLocal(domainName):
     for row in TABLE:
         if row["name"] == domainName:
             print("Server finds IP " + row["ip"] + " for domain " + domainName)
 
             return row["ip"]
 
-    return None
+    return False
+
+
+def GetIpFromNameRaiz(domainName):
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect((CONFIG["rootip"].split(":")[0],
+                    int(CONFIG["rootip"].split(":")[1])))
+
+    print("Server was connected to root server at IP " +
+          CONFIG["rootip"].split(":")[0]) + ":" + CONFIG["rootip"].split(":")[1]
+
+    client.send(domainName)
+
+    data = client.recv(1024)
+    response = data.rstrip("\r\n")
+
+    client.close()
+
+    if response != 404:
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect((response.split(":")[0],
+                        int(response.split(":")[1])))
+
+        print("Server was connected to DNS server at IP " +
+              response.split(":")[0]) + ":" + response.split(":")[1]
+
+        client.send(domainName)
+
+        data = client.recv(1024)
+        response = data.rstrip("\r\n")
+
+    return response
 
 
 if LoadConfig(sys.argv[1]):
@@ -92,5 +123,6 @@ if LoadConfig(sys.argv[1]):
                 data = connection.recv(1024)
                 domainName = data.rstrip("\r\n")
 
-                connection.send(GetIpFromName(domainName)
-                                or "404 domain not found")
+                connection.send(GetIpFromNameLocal(domainName)
+                                or GetIpFromNameRaiz(domainName)
+                                or 404)
