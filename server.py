@@ -70,6 +70,25 @@ def LoadTable():
         return False
 
 
+def UpdateTable(domainName, domainIP):
+    try:
+        global TABLE
+
+        file = open(CONFIG["servername"] + "-data.csv", "a+")
+        writer = csv.DictWriter(file, fieldnames=["name", "ip", "ttl"])
+
+        writer.writerow({"name": domainName, "ip": domainIP, "ttl": 0})
+
+        file.close()
+
+        print("Server updates data table at " +
+              CONFIG["servername"] + "-data.csv file")
+
+        LoadTable()
+    except Exception:
+        print(Exception)
+
+
 def GetIpFromNameLocal(domainName):
     for row in TABLE:
         if row["name"] == domainName:
@@ -80,7 +99,7 @@ def GetIpFromNameLocal(domainName):
     return False
 
 
-def GetIpFromNameRaiz(domainName):
+def GetIpFromNameRoot(domainName):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((CONFIG["rootip"].split(":")[0],
                     int(CONFIG["rootip"].split(":")[1])))
@@ -108,7 +127,11 @@ def GetIpFromNameRaiz(domainName):
         data = client.recv(1024)
         response = data.rstrip("\r\n")
 
-    return response
+        UpdateTable(domainName, response)
+
+        return GetIpFromNameLocal(domainName)
+
+    return False
 
 
 if LoadConfig(sys.argv[1]):
@@ -124,5 +147,5 @@ if LoadConfig(sys.argv[1]):
                 domainName = data.rstrip("\r\n")
 
                 connection.send(GetIpFromNameLocal(domainName)
-                                or GetIpFromNameRaiz(domainName)
+                                or (GetIpFromNameRoot(domainName))
                                 or 404)
