@@ -1,57 +1,96 @@
+import sys
 import socket
 import thread
-import sys
 import csv
+import time
 
 
-IP = "127.0.0.1"
-PORT = 3000
+CONFIG = None
 SERVER = None
 TABLE = None
 
 
-def LoadServer(portNumber):
+def LoadConfig(serverName):
     try:
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.bind((IP, int(portNumber)))
-        server.listen(1)
+        global CONFIG
 
-        print("Server is running at " + IP + ":" + str(portNumber))
+        file = open(serverName + "-config.csv", "r")
+        reader = csv.DictReader(file)
 
-        return server
+        CONFIG = list(reader)[0]
+
+        file.close()
+
+        print("Server loads config at " + serverName + "-config.csv file")
+
+        return True
     except Exception:
         print(Exception)
 
-        return None
+        return False
 
 
-def LoadTable(tableName):
-    file = open(tableName, "r")
-    table = csv.DictReader(file)
+def LoadServer():
+    try:
+        global SERVER
 
-    print("Server loads table " + tableName)
+        SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        SERVER.bind((CONFIG["serverip"].split(":")[0],
+                     int(CONFIG["serverip"].split(":")[1])))
+        SERVER.listen(1)
 
-    return table
+        print("Server is running at " +
+              CONFIG["serverip"].split(":")[0] + ":" + str(CONFIG["serverip"].split(":")[1]))
+
+        return True
+    except Exception:
+        print(Exception)
+
+        return False
 
 
-try:
-    SERVER = LoadServer(sys.argv[1])
+def LoadTable():
+    try:
+        global TABLE
 
-    TABLE = LoadTable(sys.argv[2])
+        file = open(CONFIG["servername"] + "-data.csv", "r")
+        reader = csv.DictReader(file)
 
-    for line in TABLE:
-        print(line)
+        TABLE = list(reader)
 
-    while True:
-        connection, address = SERVER.accept()
-        print("Server received connection from IP " + str(address))
+        file.close()
 
-        data = connection.recv(1024)
-        name = data.rstrip("\r\n")
+        print("Server loads data table at " +
+              CONFIG["servername"] + "-data.csv file")
 
-        # ip = getIpFromName(name)
+        return True
+    except Exception:
+        print(Exception)
 
-        # connection.send(ip or "404")
+        return False
 
-except Exception as e:
-    print(e)
+
+def GetIpFromName(domainName):
+    for row in TABLE:
+        if row["name"] == domainName:
+            print("Server finds IP " + row["ip"] + " for domain " + domainName)
+
+            return row["ip"]
+
+    return None
+
+
+if LoadConfig(sys.argv[1]):
+    if LoadTable():
+        if LoadServer():
+            while True:
+                connection, address = SERVER.accept()
+
+                print("Server received connection from IP " +
+                      str(address[0]) + ":" + str(address[1]))
+
+                data = connection.recv(1024)
+                domainName = data.rstrip("\r\n")
+
+                connection.send(GetIpFromName(domainName)
+                                or "404 domain not found")
