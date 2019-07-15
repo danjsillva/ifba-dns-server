@@ -5,9 +5,27 @@ import csv
 import time
 
 
-CONFIG = None
+CONFIG = []
+TABLE = []
 SERVER = None
-TABLE = None
+
+
+def LoadConfig(serverName):
+    try:
+        global CONFIG
+
+        fileReader = open(serverName + "-config.csv", "r")
+        reader = csv.DictReader(fileReader)
+        CONFIG = list(reader)[0]
+        fileReader.close()
+
+        print("Server loads config at " + serverName + "-config.csv file")
+
+        return True
+    except Exception as e:
+        print(e)
+
+        return False
 
 
 def UpdateDataTable():
@@ -45,26 +63,6 @@ def UpdateDataTable():
         print(e)
 
 
-def LoadConfig(serverName):
-    try:
-        global CONFIG
-
-        file = open(serverName + "-config.csv", "r")
-        reader = csv.DictReader(file)
-
-        CONFIG = list(reader)[0]
-
-        file.close()
-
-        print("Server loads config at " + serverName + "-config.csv file")
-
-        return True
-    except Exception as e:
-        print(e)
-
-        return False
-
-
 def LoadServer():
     try:
         global SERVER
@@ -88,12 +86,10 @@ def LoadFromDataTable():
     try:
         global TABLE
 
-        file = open(CONFIG["servername"] + "-data.csv", "r")
-        reader = csv.DictReader(file)
-
+        fileReader = open(CONFIG["servername"] + "-data.csv", "r")
+        reader = csv.DictReader(fileReader)
         TABLE = list(reader)
-
-        file.close()
+        fileReader.close()
 
         print("Server loads data table at " +
               CONFIG["servername"] + "-data.csv file")
@@ -109,10 +105,8 @@ def AddToDataTable(domainName, domainIP):
     try:
         file = open(CONFIG["servername"] + "-data.csv", "a+")
         writer = csv.DictWriter(file, fieldnames=["name", "ip", "ttl"])
-
         writer.writerow({"name": domainName, "ip": domainIP,
                          "ttl": int(time.time()) + int(CONFIG["ttl"])})
-
         file.close()
 
         print("Server updates data table at " +
@@ -134,38 +128,39 @@ def GetIpFromNameLocal(domainName):
 
 
 def GetIpFromNameRoot(domainName):
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((CONFIG["rootip"].split(":")[0],
-                    int(CONFIG["rootip"].split(":")[1])))
-
-    print("Server was connected to root server at IP " +
-          CONFIG["rootip"].split(":")[0]) + ":" + CONFIG["rootip"].split(":")[1]
-
-    client.send(domainName)
-
-    data = client.recv(1024)
-    response = data.rstrip("\r\n")
-
-    client.close()
-
-    if response != 404:
+    if CONFIG["servername"] != "root":
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.connect((response.split(":")[0],
-                        int(response.split(":")[1])))
+        client.connect((CONFIG["rootip"].split(":")[0],
+                        int(CONFIG["rootip"].split(":")[1])))
 
-        print("Server was connected to DNS server at IP " +
-              response.split(":")[0]) + ":" + response.split(":")[1]
+        print("Server was connected to root server at IP " +
+              CONFIG["rootip"].split(":")[0]) + ":" + CONFIG["rootip"].split(":")[1]
 
         client.send(domainName)
 
         data = client.recv(1024)
         response = data.rstrip("\r\n")
 
-        AddToDataTable(domainName, response)
+        client.close()
 
-        return GetIpFromNameLocal(domainName)
+        if response != 404:
+            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client.connect((response.split(":")[0],
+                            int(response.split(":")[1])))
 
-    return False
+            print("Server was connected to DNS server at IP " +
+                  response.split(":")[0]) + ":" + response.split(":")[1]
+
+            client.send(domainName)
+
+            data = client.recv(1024)
+            response = data.rstrip("\r\n")
+
+            AddToDataTable(domainName, response)
+
+            return GetIpFromNameLocal(domainName)
+
+    return 404
 
 
 if LoadConfig(sys.argv[1]):

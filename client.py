@@ -1,30 +1,18 @@
 import socket
-import thread
 import sys
-import json
 
 IP = "127.0.0.1"
-PORT = 3000
-CLIENT = None
 
+try:
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect((IP, int(sys.argv[1])))
 
-def LoadClient(portNumber):
-    try:
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.connect((IP, int(portNumber)))
+    client.send(sys.argv[2])
 
-        return client
-    except Exception:
-        print(Exception)
+    data = client.recv(1024)
+    response = data.rstrip("\r\n")
 
-        return None
+    print(response)
 
-
-CLIENT = LoadClient(sys.argv[1])
-
-CLIENT.send(sys.argv[2])
-
-data = CLIENT.recv(1024)
-response = data.rstrip("\r\n")
-
-print(response)
+except Exception as e:
+    print(e)
