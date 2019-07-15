@@ -10,6 +10,41 @@ SERVER = None
 TABLE = None
 
 
+def UpdateDataTable():
+    try:
+        global TABLE
+
+        print("Server starts update data table service at " +
+              CONFIG["servername"] + "-data.csv file")
+
+        while True:
+            fileReader = open(CONFIG["servername"] + "-data.csv", "r")
+            reader = csv.DictReader(fileReader)
+            table = list(reader)
+            fileReader.close()
+
+            fileWriter = open(CONFIG["servername"] + "-data.csv", "w+")
+            writer = csv.DictWriter(fileWriter, fieldnames=[
+                                    "name", "ip", "ttl"])
+
+            writer.writeheader()
+
+            for row in table:
+                if int(row["ttl"]) == 0 or int(row["ttl"]) > time.time():
+                    writer.writerow(row)
+
+            fileWriter.close()
+
+            fileReaderUpdated = open(CONFIG["servername"] + "-data.csv", "r")
+            reader = csv.DictReader(fileReaderUpdated)
+            TABLE = list(reader)
+            fileReaderUpdated.close()
+
+            time.sleep(int(CONFIG["ttu"]))
+    except Exception as e:
+        print(e)
+
+
 def LoadConfig(serverName):
     try:
         global CONFIG
@@ -24,8 +59,8 @@ def LoadConfig(serverName):
         print("Server loads config at " + serverName + "-config.csv file")
 
         return True
-    except Exception:
-        print(Exception)
+    except Exception as e:
+        print(e)
 
         return False
 
@@ -43,13 +78,13 @@ def LoadServer():
               CONFIG["serverip"].split(":")[0] + ":" + str(CONFIG["serverip"].split(":")[1]))
 
         return True
-    except Exception:
-        print(Exception)
+    except Exception as e:
+        print(e)
 
         return False
 
 
-def LoadTable():
+def LoadFromDataTable():
     try:
         global TABLE
 
@@ -64,29 +99,28 @@ def LoadTable():
               CONFIG["servername"] + "-data.csv file")
 
         return True
-    except Exception:
-        print(Exception)
+    except Exception as e:
+        print(e)
 
         return False
 
 
-def UpdateTable(domainName, domainIP):
+def AddToDataTable(domainName, domainIP):
     try:
-        global TABLE
-
         file = open(CONFIG["servername"] + "-data.csv", "a+")
         writer = csv.DictWriter(file, fieldnames=["name", "ip", "ttl"])
 
-        writer.writerow({"name": domainName, "ip": domainIP, "ttl": 0})
+        writer.writerow({"name": domainName, "ip": domainIP,
+                         "ttl": int(time.time()) + int(CONFIG["ttl"])})
 
         file.close()
 
         print("Server updates data table at " +
               CONFIG["servername"] + "-data.csv file")
 
-        LoadTable()
-    except Exception:
-        print(Exception)
+        LoadFromDataTable()
+    except Exception as e:
+        print(e)
 
 
 def GetIpFromNameLocal(domainName):
@@ -127,7 +161,7 @@ def GetIpFromNameRoot(domainName):
         data = client.recv(1024)
         response = data.rstrip("\r\n")
 
-        UpdateTable(domainName, response)
+        AddToDataTable(domainName, response)
 
         return GetIpFromNameLocal(domainName)
 
@@ -135,17 +169,19 @@ def GetIpFromNameRoot(domainName):
 
 
 if LoadConfig(sys.argv[1]):
-    if LoadTable():
-        if LoadServer():
-            while True:
-                connection, address = SERVER.accept()
+    # if LoadFromDataTable():
+    thread.start_new_thread(UpdateDataTable, ())
 
-                print("Server received connection from IP " +
-                      str(address[0]) + ":" + str(address[1]))
+    if LoadServer():
+        while True:
+            connection, address = SERVER.accept()
 
-                data = connection.recv(1024)
-                domainName = data.rstrip("\r\n")
+            print("Server received connection from IP " +
+                  str(address[0]) + ":" + str(address[1]))
 
-                connection.send(GetIpFromNameLocal(domainName)
-                                or (GetIpFromNameRoot(domainName))
-                                or 404)
+            data = connection.recv(1024)
+            domainName = data.rstrip("\r\n")
+
+            connection.send(GetIpFromNameLocal(domainName)
+                            or (GetIpFromNameRoot(domainName))
+                            or 404)
