@@ -143,7 +143,7 @@ def GetIpFromNameRoot(domainName):
 
         client.close()
 
-        if response != 404:
+        if response != "404":
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.connect((response.split(":")[0],
                             int(response.split(":")[1])))
@@ -160,11 +160,10 @@ def GetIpFromNameRoot(domainName):
 
             return GetIpFromNameLocal(domainName)
 
-    return 404
+    return False
 
 
 if LoadConfig(sys.argv[1]):
-    # if LoadFromDataTable():
     thread.start_new_thread(UpdateDataTable, ())
 
     if LoadServer():
@@ -179,4 +178,4 @@ if LoadConfig(sys.argv[1]):
 
             connection.send(GetIpFromNameLocal(domainName)
                             or (GetIpFromNameRoot(domainName))
-                            or 404)
+                            or "404")
