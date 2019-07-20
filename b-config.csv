@@ -1,2 +1,2 @@
-servername,serverip,rootip,ttl,ttu
-b,127.0.0.1:3002,127.0.0.1:3000,30,10
+servername,serverip,rootip,ttu
+b,127.0.0.1:3002,127.0.0.1:3000,10

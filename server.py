@@ -33,15 +33,18 @@ def UpdateDataTable():
         global TABLE
 
         print("Server starts update data table service at " +
-              CONFIG["servername"] + "-data.csv file")
+              CONFIG["servername"] + "-data-authoritative.csv and " +
+              CONFIG["servername"] + "-data-recursive.csv files ")
 
         while True:
-            fileReader = open(CONFIG["servername"] + "-data.csv", "r")
+            fileReader = open(CONFIG["servername"] +
+                              "-data-recursive.csv", "r")
             reader = csv.DictReader(fileReader)
             table = list(reader)
             fileReader.close()
 
-            fileWriter = open(CONFIG["servername"] + "-data.csv", "w+")
+            fileWriter = open(CONFIG["servername"] +
+                              "-data-recursive.csv", "w+")
             writer = csv.DictWriter(fileWriter, fieldnames=[
                                     "name", "ip", "ttl"])
 
@@ -53,10 +56,7 @@ def UpdateDataTable():
 
             fileWriter.close()
 
-            fileReaderUpdated = open(CONFIG["servername"] + "-data.csv", "r")
-            reader = csv.DictReader(fileReaderUpdated)
-            TABLE = list(reader)
-            fileReaderUpdated.close()
+            LoadFromDataTable()
 
             time.sleep(int(CONFIG["ttu"]))
     except Exception as e:
@@ -86,13 +86,20 @@ def LoadFromDataTable():
     try:
         global TABLE
 
-        fileReader = open(CONFIG["servername"] + "-data.csv", "r")
-        reader = csv.DictReader(fileReader)
+        fileReader1 = open(CONFIG["servername"] +
+                           "-data-authoritative.csv", "r")
+        reader = csv.DictReader(fileReader1)
         TABLE = list(reader)
-        fileReader.close()
+        fileReader1.close()
+
+        fileReader2 = open(CONFIG["servername"] + "-data-recursive.csv", "r")
+        reader = csv.DictReader(fileReader2)
+        TABLE += list(reader)
+        fileReader2.close()
 
         print("Server loads data table at " +
-              CONFIG["servername"] + "-data.csv file")
+              CONFIG["servername"] + "-data-authoritative.csv and " +
+              CONFIG["servername"] + "-data-recursive.csv files ")
 
         return True
     except Exception as e:
@@ -101,16 +108,16 @@ def LoadFromDataTable():
         return False
 
 
-def AddToDataTable(domainName, domainIP):
+def AddToDataTable(domainName, domainIP, domainTTL):
     try:
-        file = open(CONFIG["servername"] + "-data.csv", "a+")
+        file = open(CONFIG["servername"] + "-data-recursive.csv", "a+")
         writer = csv.DictWriter(file, fieldnames=["name", "ip", "ttl"])
         writer.writerow({"name": domainName, "ip": domainIP,
-                         "ttl": int(time.time()) + int(CONFIG["ttl"])})
+                         "ttl": int(time.time()) + int(domainTTL)})
         file.close()
 
         print("Server updates data table at " +
-              CONFIG["servername"] + "-data.csv file")
+              CONFIG["servername"] + "-data-recursive.csv file")
 
         LoadFromDataTable()
     except Exception as e:
@@ -122,7 +129,7 @@ def GetIpFromNameLocal(domainName):
         if row["name"] == domainName:
             print("Server finds IP " + row["ip"] + " for domain " + domainName)
 
-            return row["ip"]
+            return row["ip"] + " " + row["ttl"]
 
     return False
 
@@ -145,8 +152,8 @@ def GetIpFromNameRoot(domainName):
 
         if response != "404":
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect((response.split(":")[0],
-                            int(response.split(":")[1])))
+            client.connect((response.split()[0].split(":")[0],
+                            int(response.split()[0].split(":")[1])))
 
             print("Server was connected to DNS server at IP " +
                   response.split(":")[0]) + ":" + response.split(":")[1]
@@ -156,7 +163,8 @@ def GetIpFromNameRoot(domainName):
             data = client.recv(1024)
             response = data.rstrip("\r\n")
 
-            AddToDataTable(domainName, response)
+            AddToDataTable(domainName, response.split()
+                           [0], response.split()[1])
 
             return GetIpFromNameLocal(domainName)
 
